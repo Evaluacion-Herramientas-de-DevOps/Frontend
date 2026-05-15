@@ -1,4 +1,4 @@
-name: Deploy Frontend
+name: Deploy Frontend to AWS ECR
 
 on:
   push:
@@ -11,32 +11,42 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Build and Push Docker image
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: frontend-despacho # Asegúrate que este nombre exista en tu ECR
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/front-despacho:latest ./front_despacho
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/front-despacho:latest
+          # El punto al final indica que el Dockerfile está en la raíz
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to EC2 via SSH
+      - name: Deploy to EC2 via SSM or SSH
+        # Si vas a usar SSH como el código anterior, necesitas el secreto EC2_SSH_KEY
+        # Si no lo tienes, podrías usar AWS SSM, pero SSH es más común en Duoc.
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.EC2_HOST }} # Debes agregar este secret con la IP de tu instancia
           username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key: ${{ secrets.EC2_SSH_KEY }} # Debes agregar este secret con tu archivo .pem
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/front-despacho:latest
-            docker stop front-despacho || true
-            docker rm front-despacho || true
-            docker run -d --name front-despacho \
-              -p 80:80 \
-              --network app-network \
-              ${{ secrets.DOCKERHUB_USERNAME }}/front-despacho:latest
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+            docker pull ${{ secrets.ECR_URL_FRONTEND }}:latest
+            docker stop frontend || true
+            docker rm frontend || true
+            docker run -d --name frontend -p 80:80 ${{ secrets.ECR_URL_FRONTEND }}:latest
