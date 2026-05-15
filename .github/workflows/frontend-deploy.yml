@@ -1,6 +1,5 @@
 name: Deploy Frontend to AWS ECR
 
-
 on:
   push:
     branches: [ "deploy" ]
@@ -8,12 +7,15 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      # Esto elimina los warnings de Node.js 20
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 # Actualizado a v4
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4 # Actualizado a v4
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -22,17 +24,15 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2 # Actualizado a v2
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag, and push image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          # REVISA ESTO: El nombre debe ser igual al que creaste en la consola de AWS
-          ECR_REPOSITORY: frontend-despacho 
+          ECR_REPOSITORY: frontend
         run: |
-          # Si tu Dockerfile está en una carpeta llamada 'front_despacho', 
-          # el punto final debe ser ./front_despacho
-          # Si está en la raíz, deja el punto solo .
+          # IMPORTANTE: Revisa si tu Dockerfile está en la raíz o en una carpeta
+          # Si está en la carpeta 'front_despacho', cambia el punto final por ./front_despacho
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
