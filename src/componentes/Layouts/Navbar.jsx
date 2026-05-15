@@ -4,6 +4,7 @@ function Navbar() {
       {/* Logo o título */}
       <h2 className="text-xl font-bold mb-8">Carlos</h2>
 
+
       {/* Menú de navegación */}
       <ul className="space-y-3">
         <li>
