@@ -1,5 +1,5 @@
 name: Deploy Frontend to AWS ECR
-###
+##
 on:
   push:
     branches: [ "deploy" ]
